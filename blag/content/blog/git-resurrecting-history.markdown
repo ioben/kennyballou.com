@@ -83,7 +83,117 @@ changes of our mistakes.
 [git-reflog(1)][1] is a very important tool, but another way histroy can be
 lost is by becoming "unreachable".
 
-This is where [git-fsck(3)][3] can help!
+This is where [git-fsck(1)][3] can help! [git-fsck(1)][3] searches the Git
+object store, and will report objects that are dangling or unreachable from a
+named reference. This way, we can find commits, or even blobs, that have been
+lost to us because they do not exist in the directed acyclic graph (DAG) of
+Git, but _do_ exist in the object store itself.
+
+For example, running `git fsck` on this repository yields the following output:
+
+    ± git fsck
+    Checking object directories: 100% (256/256), done.
+    Checking objects: 100% (150/150), done.
+    dangling commit 16f6063abde9dcd8279fb2a7ddd4998aaf44acc7
+
+Now, if we add another option, namely, `--unreachable`, we get the following:
+
+    ± git fsck --unreachable
+    unreachable blob 20c1e21948ab5d9553c11fa8a7230d73055c207e
+    unreachable commit 16f6063abde9dcd8279fb2a7ddd4998aaf44acc7
+    unreachable commit 41a324739bc3f1d265ecc474c58256e3a4ad4982
+    unreachable blob c4131dc6d091b1c16943554fa2396f5d405e8537
+
+Furthermore, objects listed in the reflog are considered "reachable", but may
+be still eluding our search. Adding `--no-reflogs` to [git-fsck(1)][3] can help
+make these objects more visible:
+
+    ± git fsck --unreachable --no-reflogs
+    unreachable commit 00fc0164a78fe6b46e56781d434fdbb893f11534
+    unreachable blob 18a484273f75e4a3dcac75cb5229a614f6090be0
+    unreachable commit 1cdc30ebd6ebbaba4a8c28fb35457a8d5cb4326f
+    unreachable blob 27c4af632030e3d794181024fba120c6db44eef5
+    unreachable commit 31a0e98166bc48bf1f725a657e27632c99568da0
+    unreachable commit 34bc98ae27f3db69df82b186cf2ef8a86b42ea12
+    unreachable commit 8f08be163f185dd130a86d67daf61639632c4e20
+    unreachable commit bf8836f2e435ee241ebe53f0eae4ee98bd887082
+    unreachable commit 06414a75d58cee81fb2035b8af45a543c6bb09ef
+    unreachable blob 1f853af2881919bc62321b536bfc0de6e9602db6
+    unreachable blob 20c1e21948ab5d9553c11fa8a7230d73055c207e
+    unreachable commit 54cd8b9b5c58409ce3f509e74d5a7a7ac4a73309
+    unreachable commit a9693871e765355b6d9a57a612a76f454b177da0
+    unreachable commit ad45856329ff97bd35ac17325952c21e53d51b28
+    unreachable blob b8154e42d08b74ae6b9817e12b7764d55760c86e
+    unreachable commit cb599620e2d364e2ab44ada45f16df05c5fe3f51
+    unreachable commit e859353ddc681177141d84a0053b9b8ecad1151e
+    unreachable blob fed50bb1d7c749767de7589cc8ef0acf8caf8226
+    unreachable blob 056a7e48130d8d22227367ae9753cb5c9afe2d39
+    unreachable commit 16f6063abde9dcd8279fb2a7ddd4998aaf44acc7
+    unreachable commit 54def8ee3ea0c7043767185e5900480d24ddb351
+    unreachable commit 65d2a1553e3c1dd745afa318135a5957e50dd6ef
+    unreachable commit 741afdc2f13e76bd0c48e1df7419b37e57733de3
+    unreachable commit 7bb6b449ced0493f2d3cc975157aefa84b082e04
+    unreachable commit 7e067ad694538a410f98732ce3052546aadc0240
+    unreachable commit 809e9d1f131f54701325357199643505773f5d25
+    unreachable blob 8802d6dcac8b14399ca4082987a76be4b179333c
+    unreachable blob 8b82ffa1eb05ef3306ab62e1120f77a80a887d94
+    unreachable commit 9af67536e6852fe928934ba0950809597d73a173
+    unreachable blob b23eefdac6b2056e25c748679958179bdbd8f81f
+    unreachable blob b66ef50f82242ec929141cf3246278c6160e230a
+    unreachable blob c2fa5a98fe1010a1255f032ba34a612e404c7062
+    unreachable blob dd42939b3f6cf542064eb011b74749195c951957
+    unreachable commit 07f39952cd161438ff4b208b6cb10b287881db85
+    unreachable blob 1c0327c6a73923e932eb4f4bf877f660bd13a7b0
+    unreachable commit 41a324739bc3f1d265ecc474c58256e3a4ad4982
+    unreachable commit 74671b411e2cf1209bc681f0349e24ef7fe00f19
+    unreachable commit 9437cbb0500b22a57a62e2cf0a512b1b56ce6a96
+    unreachable commit 9a0f5f8c63c184cd5082f27dbe513b3e683bc1ad
+    unreachable commit 9b7bc7bf0f01a84621e23bfa02e0a09f63da1747
+    unreachable commit bce7c8dbcc56e6935015a5fb2c74224bb8d9f768
+    unreachable blob c4131dc6d091b1c16943554fa2396f5d405e8537
+    unreachable blob c69782e19aee6d89de4f6bcf9ed14813f72c8c10
+    unreachable blob d79fb0b95796290c33d6f3dee004235dad7d8893
+    unreachable commit dabb01b3df1371602f3f0689d25359597db54423
+    unreachable blob ec2ba85be58685070a44727bc2591b9a32eb6457
+
+Using these hashes, one could inspect them using other [familiar tools][4],
+namely, [git-show(1)][5] and [git-cat-file(1)][6] to figure out if these are
+worth resurrecting or are in fact the objects we want to resurrect.
+
+## Resurrection Example ##
+
+Now that we have our tools, let's examine a situation where a change to the
+history was made that needs to be corrected: squashed public commits.
+
+Let's say we have been working on some feature in our branch, but have somehow
+found out that we have squashed too many commits then we intended, changing the
+history and making our changes non-pushable. How might we solve this?
+
+To make this example more concrete, let's run a few commands that put us into
+this problem:
+
+    $ cd $(mktemp -d)
+    $ git init foobar
+    $ cd foobar
+    ± touch foo
+    ± git add foo
+    ± git commit -m 'initial commit'
+    ± touch bar
+    ± git add bar
+    ± git commit -m 'add bar'
+    ± touch foobar
+    ± git add foobar
+    ± git commit -m 'add foobar'
+    ± echo 1 >> foo
+    ± git commit -a -m 'update foo: add 1'
+
+After this, we should have a log similar to the following:
+
+    ± git log --oneline
+    f3fb125 update foo: add 1
+    976ad96 add foobar
+    113f412 add bar
+    7e5b674 initial commit
 
 ## References ##
 
@@ -92,3 +202,9 @@ This is where [git-fsck(3)][3] can help!
 [2]: https://git-scm.com/book/en/v2/Git-Internals-Git-References
 
 [3]: https://www.kernel.org/pub/software/scm/git/docs/git-fsck.html
+
+[4]: https://kennyballou.com/blog/2016/01/git-in-reverse/
+
+[5]: https://www.kernel.org/pub/software/scm/git/docs/git-show.html
+
+[6]: https://www.kernel.org/pub/software/scm/git/docs/git-cat-file.html
