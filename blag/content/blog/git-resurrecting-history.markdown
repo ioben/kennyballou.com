@@ -195,7 +195,111 @@ After this, we should have a log similar to the following:
     113f412 add bar
     7e5b674 initial commit
 
+Now, let's assume all of these commits are public except the last one,
+`f3fb125` in this case.
+
+Let's perform a rebase, but instead will be squashing in the previous two
+commits, `976ad96` and `113f412`.
+
+    ± git rebase -i HEAD~3
+    (change the `pick` in the last two commits to `fixup`)
+    ± git log --online
+    883934d add bar
+    7e5b674 initial commit
+    ± git show --stat
+    commit 883934d0d3f11cdc596f5e6e11185f3e04b6a877
+    Author: kballou <kballou@devnulllabs.io>
+    Date:   Thu Sep 8 11:58:46 2016 -0600
+
+        add bar
+
+     bar    | 0
+     foo    | 1 +
+     foobar | 0
+     3 files changed, 1 insertion(+)
+
+Here, `883934d` has the last three commits rolled into it, which is clearly not
+what we want.
+
+How do we return to the original state?
+
+### Solution ###
+
+Correcting the state in this repository, as it turns out, is actually quite
+simple.
+
+Let's look at the reflog now:
+
+   ± git reflog
+    883934d HEAD@{0}: rebase -i (finish): returning to refs/heads/master
+    883934d HEAD@{1}: rebase -i (fixup): add bar
+    9ef31d7 HEAD@{2}: rebase -i (fixup): # This is a combination of 2 commits.
+    113f412 HEAD@{3}: rebase -i (start): checkout HEAD~3
+    f3fb125 HEAD@{4}: commit: update foo: add 1
+    976ad96 HEAD@{5}: commit: add foobar
+    113f412 HEAD@{6}: commit: add bar
+    7e5b674 HEAD@{7}: commit (initial): initial commit
+
+At `HEAD@{3}`, we see the start of the rebase operation, and at `HEAD@{4}` we
+see the original HEAD, before the rebase. Therefore, we can use the
+[git-reset(1)][7] command to reset the branch back to the previous state:
+
+    ± git reset --hard HEAD@{4}
+    HEAD is now at f3fb125 update foo: add 1
+    ± git log --oneline
+    f3fb125 update foo: add 1
+    976ad96 add foobar
+    113f412 add bar
+    7e5b674 initial commit
+
+We are now back where we were.
+
+Another way this can be solved is by noticing that [git-rebase(1)][8] (and
+other tools within Git) writes the previous `HEAD` commit into a file under the
+`./.git` folder called `ORIG_HEAD`. Now that we have done a `git reset --hard`,
+the `./.git/ORIG_HEAD` file points to the squashed commit:
+
+    ± cat .git/ORIG_HEAD
+    883934d0d3f11cdc596f5e6e11185f3e04b6a877
+
+## Another Example Resurrection ##
+
+For another example, let's examine when we create a branch and change the
+parent commit of the branch point.
+
+We will start with some commands that create and initialize the repository into
+the initial state, that is, before any mistakes are made:
+
+    $ cd $(mktemp -d)
+    $ git init foobar
+    $ cd foobar
+    ± touch foo
+    ± git add foo
+    ± git commit -m 'initial commit'
+    ± touch bar
+    ± git add bar
+    ± git commit -m 'add bar'
+    ± echo 1 >> foo
+    ± git commit -am 'update foo: add 1'
+    ± git checkout -b topic/foobar
+    ± echo 1 >> bar
+    ± git commit -am 'update bar: add 1'
+
+From here, our "oneline" log should look similar to the following:
+
+    ± git log --oneline
+    3de2659 update bar: add 1
+    5e6dd5f update foo: add 1
+    9640abb add bar
+    31d2347 initial commit
+
+Furthermore, here is an image that describes the state of the respository.
+
+![repo-state-1][repo-state-1]
+
 ## References ##
+
+[repo-state-1]: https://kennyballou.com/media/git-repo-state-1.svg
 
 [1]: https://www.kernel.org/pub/software/scm/git/docs/git-reflog.html
 
@@ -208,3 +312,7 @@ After this, we should have a log similar to the following:
 [5]: https://www.kernel.org/pub/software/scm/git/docs/git-show.html
 
 [6]: https://www.kernel.org/pub/software/scm/git/docs/git-cat-file.html
+
+[7]: https://www.kernel.org/pub/software/scm/git/docs/git-reset.html
+
+[8]: https://www.kernel.org/pub/software/scm/git/docs/git-rebase.html
