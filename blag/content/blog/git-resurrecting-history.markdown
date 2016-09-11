@@ -293,13 +293,122 @@ From here, our "oneline" log should look similar to the following:
     9640abb add bar
     31d2347 initial commit
 
-Furthermore, here is an image that describes the state of the respository.
+Furthermore, here is an image that describes the state of the repository.
 
-![repo-state-1][repo-state-1]
+{{< figure src="/media/git-repo-state-1.svg"
+    alt="Example Repository State 1" >}}
+
+Next, we will create a few more commits, but instead of doing things properly,
+we are going to (intentionally) make a mistake. We will merge our
+`topic/foobar` branch into `master`, create a new file, `foobar`, and create a
+branch, `topic/bad`, from `topic/foobar`. In the `topic/bad` branch, we will
+create a new commit, but then we will rebase the two previous commits.
+
+Let's being issuing commands against our repository:
+
+    ± git checkout master
+    ± git merge --ff-only topic/foobar
+    ± touch foobar
+    ± git add foobar
+    ± git commit -m 'add foobar'
+    ± git checkout -b topic/bad topic/foobar
+    ± echo 2 >> foo
+    ± git commit -am 'update foo: add 2'
+    ± echo 2 >> bar
+    ± git commit -am 'update bar: add 2'
+
+Thusly, our repository should look similar to the following image:
+
+{{< figure src="/media/git-repo-state-2.svg"
+    alt="Example Repository State 2" >}}
+
+Now, for the mistake:
+
+    ± git rebase -i HEAD~3
+    (squash the previous commits)
+
+This should result in a repository that looks like the following:
+
+{{< figure src="/media/git-repo-state-3.svg"
+    alt="Example Repository State 3" >}}
+
+Assuming we didn't recognize the mistake, we might attempt to merge the branch:
+
+    ± git checkout master
+    ± git merge --ff-only topic/bad
+    fatal: Not possible to fast-forward, aborting.
+
+Well, of course, the `master` branch is ahead by one commit, and the
+`topic/bad` branch is "behind" by two.
+
+We can see this be viewing the logs when going from `master` to `topic/bad` and
+then vice-versa:
+
+    ± git log --oneline master..topic/bad
+    3b71666 update bar: add 1
+    ± git log --oneline topic/bad..master
+    7387d60 add foobar
+    3de2659 update bar: add 1
+
+But another issue emerges from viewing these log outputs from our mistake
+ignorant brains: two of the commits look the same.
+
+Yep, it looks like we have not only combined two of our the changes from
+`topic/bad` but we combined them with a commit that was _already_ merged into
+the `master` branch. Assuming `master` is a stable and branchable branch, we
+will not be able to simply rebase one way and return, the commits are too
+intermingled
+
+### Solutions ###
+
+One way we can fix this is to simply not care. But that's not what we are
+about: we like clean history, this situation is clearly not clean!
+
+Therefore, we will have to return the `topic/bad` branch to a cleaner state
+before continuing with merging the work done in the branch.
+
+Let's start with the reflog:
+
+    ± git reflog
+    7387d60 HEAD@{0}: checkout: moving from topic/bad to master
+    3b71666 HEAD@{1}: rebase -i (finish): returning to refs/heads/topic/bad
+    3b71666 HEAD@{2}: rebase -i (fixup): update bar: add 1
+    4cc10e9 HEAD@{3}: rebase -i (fixup): # This is a combination of 2 commits.
+    3de2659 HEAD@{4}: rebase -i (start): checkout HEAD~3
+    7647f9c HEAD@{5}: commit: update bar: add 2
+    4babfe7 HEAD@{5}: commit: update foo: add 2
+    3de2659 HEAD@{6}: checkout: moving from master to topic/bad
+    7387d60 HEAD@{7}: commit: add foobar
+    3de2659 HEAD@{8}: checkout: moving from topic/bad to master
+    3de2659 HEAD@{9}: checkout: moving from master to topic/bad
+    3de2659 HEAD@{10}: merge topic/foobar: Fast-forward
+    5e6dd5f HEAD@{11}: checkout: moving from topic/foobar to master
+    3de2659 HEAD@{12}: commit: update bar: add 1
+    5e6dd5f HEAD@{13}: checkout: moving from master to topic/foobar
+    5e6dd5f HEAD@{14}: commit: update foo: add 1
+    9640abb HEAD@{15}: commit: add bar
+    31d2347 HEAD@{16}: commit (initial): initial commit
+
+Examining `HEAD@{5}` we will see the commit of `topic/bad` _before_ we
+attempted to rebase the three commits. If we start there, we may be able to
+salvage the history.
+
+    ± git checkout topic/bad
+    ± git reset --hard 7647f9c
+    ± git log --oneline
+    7647f9c update bar: add 2
+    4babfe7 update foo: add 2
+    3de2659 update bar: add 1
+    5e6dd5f update foo: add 1
+    9640abb add bar
+    31d2347 initial commit
+
+Perfect, we are back to the state of the branch as seen in the following image:
+
+{{< figure src="/media/git-repo-state-2.svg"
+    alt="Example Repository State Before Mistake" >}}
 
 ## References ##
-
-[repo-state-1]: https://kennyballou.com/media/git-repo-state-1.svg
 
 [1]: https://www.kernel.org/pub/software/scm/git/docs/git-reflog.html
 
