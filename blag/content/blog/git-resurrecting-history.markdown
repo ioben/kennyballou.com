@@ -6,7 +6,7 @@ tags:
   - "Tips and Tricks"
   - "How-to"
   - "zData"
-date: "2016-09-07"
+date: "2016-09-14"
 draft: true
 categories:
   - "Development"
@@ -27,7 +27,7 @@ necessary tools are known.
 --[git-reflog(1)][1]
 
 That is, the reference log is the (meta)log of the actions against branches
-(tips) and other [references][2]. Everytime we commit, merge, change branches,
+(tips) and other [references][2]. Every time we commit, merge, change branches,
 or perform _any_ action that might alter the commit a reference points to, this
 change is stored in the reflog of the current repository. For a freshly cloned
 repository, the reflog will be quite boring, e.g., a single entry for the
@@ -66,21 +66,21 @@ For example, here is the first 24 lines of the reflog for this blog:
 The first column is the commit SHA-1 that is the _result_ of the action, the
 second column provides a shortcut reference that can be used anywhere a regular
 reference can be, the 3rd column is the action, e.g., `checkout`, `commit`,
-`merge`, ect., and a short description of the action. In the case of commits,
+`merge`, etc., and a short description of the action. In the case of commits,
 the description text will be the summary line of the commit message.
 
 From the reflog, we can see I've recently made a branch for this post, before
 that, I made several commits against the `master` branch, and before that, I
 performed a fast-forward merge of the local `elixir_releases` branch into the
-`master` branch. Ect.
+`master` branch. Etc.
 
 This is some pretty powerful information for digging into the history of the
-repository. The reflog is indispensible for working out how to recover the lost
+repository. The reflog is indispensable for working out how to recover the lost
 changes of our mistakes.
 
 ## Git Fsck ##
 
-[git-reflog(1)][1] is a very important tool, but another way histroy can be
+[git-reflog(1)][1] is a very important tool, but another way history can be
 lost is by becoming "unreachable".
 
 This is where [git-fsck(1)][3] can help! [git-fsck(1)][3] searches the Git
@@ -285,7 +285,7 @@ the initial state, that is, before any mistakes are made:
     ± echo 1 >> bar
     ± git commit -am 'update bar: add 1'
 
-From here, our "oneline" log should look similar to the following:
+From here, our one line log should look similar to the following:
 
     ± git log --oneline
     3de2659 update bar: add 1
@@ -355,7 +355,7 @@ ignorant brains: two of the commits look the same.
 
 Yep, it looks like we have not only combined two of our the changes from
 `topic/bad` but we combined them with a commit that was _already_ merged into
-the `master` branch. Assuming `master` is a stable and branchable branch, we
+the `master` branch. Assuming `master` is a stable and "branchable" branch, we
 will not be able to simply rebase one way and return, the commits are too
 intermingled
 
@@ -408,7 +408,77 @@ Perfect, we are back to the state of the branch as seen in the following image:
 {{< figure src="/media/git-repo-state-2.svg"
     alt="Example Repository State Before Mistake" >}}
 
+From here, we can merge the two branches however we please: rebase and
+fast-forward or regular old merge commits.
+
+The first way of merging the two branches may proceed as follows:
+
+    ± git branch
+    topic/bad
+    ± git rebase master
+    First, rewinding head to replay your work on top of it...
+    Applying: update foo: add 2
+    Applying: update bar: add 2
+    ± git checkout master
+    Switched to branch 'master'
+    ± git merge --ff-only topic/bad
+    Updating 7387d60..577aa0b
+    Fast-forward
+     bar | 1 +
+     foo | 1 +
+     2 files changed, 2 insertions(+)
+
+Afterwards, our repository will look like the following figure:
+
+{{< figure src="/media/git-repo-state-4.svg"
+    alt="Example Repository State After Rebase Fast-Forward Merge" >}}
+
+> If we wanted to rebase the two commits from `topic/bad` together, we could
+> have easily done so _right_ before switching to the `master` branch.
+
+Proceeding with a regular merge commit would proceed similar to the following:
+
+    ± git checkout master
+    Switched to branch 'master'
+    ± git merge --no-ff topic/bad -m 'merge branch "topic/bad"'
+    Merge made by the 'recursive' strategy.
+     bar | 1 +
+     foo | 1 +
+     2 files changed, 2 insertions(+)
+
+Afterwards, our repository will look like the following figure:
+
+{{< figure src="/media/git-repo-state-5.svg"
+    alt="Example Repository State After Merge Commit" >}}
+
+## Summary ##
+
+The best way to fix Git repository history is not to make mistakes in the first
+place. However, since mistakes are inevitable, we must learn the tools to
+discover, recover, and return to the appropriate state to correct our mistakes.
+
+This way, we can avoid keeping around a `git.txt` file ([xkcd][9]) when our
+repository eventually melts down.
+
 ## References ##
+
+*   [`git-reflog(1)`][1]
+
+*   [Git SCM book, Internals Chapter][2]
+
+*   [`git-fsck(1)`][3]
+
+*   [Git in Reverse][4]
+
+*   [`git-show(1)`][5]
+
+*   [`git-cat-file(1)`][6]
+
+*   [`git-reset(1)`][7]
+
+*   [`git-rebase(1)`][8]
+
+*   [XKCD: Git][9]
 
 [1]: https://www.kernel.org/pub/software/scm/git/docs/git-reflog.html
 
@@ -425,3 +495,5 @@ Perfect, we are back to the state of the branch as seen in the following image:
 [7]: https://www.kernel.org/pub/software/scm/git/docs/git-reset.html
 
 [8]: https://www.kernel.org/pub/software/scm/git/docs/git-rebase.html
+
+[9]: https://xkcd.com/1597
